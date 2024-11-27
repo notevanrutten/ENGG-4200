@@ -1,5 +1,9 @@
 #include <Arduino.h>
-#include <BLEDevice.h>
+#include <NimBLEDevice.h>
+#include <PubSubClient.h>
+#include <WiFi.h>
+
+#include "secrets.h"
 
 BLEUUID SERVICE_UUID("75f0a01e-af65-4099-b8ba-2af4e66fc482");
 BLEUUID CHARACTERISTIC_UUID_1("9f4ae00e-c22a-4595-a7fd-f4176d084213");
@@ -8,6 +12,9 @@ BLEUUID CHARACTERISTIC_UUID_3("08b109db-00f7-46a6-9c25-e6c6d0ec7ce6");
 
 BLEAdvertisedDevice *myDevice;
 bool doConnect = false;
+
+WiFiClient wifiClient;
+PubSubClient pubSubClient(wifiClient);
 
 void notifyCallback(BLERemoteCharacteristic *pCharacteristic, uint8_t *pData,
                     size_t length, bool isNotify) {
@@ -22,7 +29,7 @@ void connectToServer() {
 
   BLEClient *pClient = BLEDevice::createClient();
   pClient->connect(myDevice);
-  pClient->setMTU(64);
+  // pClient->setMTU(64);
 
   BLERemoteService *pRemoteService = pClient->getService(SERVICE_UUID);
   if (pRemoteService == nullptr) {
@@ -33,32 +40,31 @@ void connectToServer() {
   BLERemoteCharacteristic *pCharacteristic1 =
       pRemoteService->getCharacteristic(CHARACTERISTIC_UUID_1);
   if (pCharacteristic1 != nullptr) {
-    pCharacteristic1->registerForNotify(notifyCallback);
+    pCharacteristic1->subscribe(true, notifyCallback);
   }
 
   BLERemoteCharacteristic *pCharacteristic2 =
       pRemoteService->getCharacteristic(CHARACTERISTIC_UUID_2);
   if (pCharacteristic2 != nullptr) {
-    pCharacteristic2->registerForNotify(notifyCallback);
+    pCharacteristic2->subscribe(true, notifyCallback);
   }
 
   BLERemoteCharacteristic *pCharacteristic3 =
       pRemoteService->getCharacteristic(CHARACTERISTIC_UUID_3);
   if (pCharacteristic3 != nullptr) {
-    pCharacteristic3->registerForNotify(notifyCallback);
+    pCharacteristic3->subscribe(true, notifyCallback);
   }
 
   Serial.println("Connected to server");
 }
 
 class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
-  void onResult(BLEAdvertisedDevice advertisedDevice) {
-    if (advertisedDevice.haveServiceUUID() &&
-        advertisedDevice.isAdvertisingService(SERVICE_UUID)) {
+  void onResult(BLEAdvertisedDevice *advertisedDevice) override {
+    if (advertisedDevice->isAdvertisingService(SERVICE_UUID)) {
 
       BLEDevice::getScan()->stop();
 
-      myDevice = new BLEAdvertisedDevice(advertisedDevice);
+      myDevice = advertisedDevice;
 
       doConnect = true;
     }
@@ -67,13 +73,24 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
 
 void setup() {
   Serial.begin(115200);
+  Serial.println();
 
-  BLEDevice::init("Master-Controller");
+  WiFi.begin(wifi_ssid, wifi_password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+  }
+  Serial.println("Connected to WiFi: " + String(wifi_ssid));
 
-  BLEScan *pBLEScan = BLEDevice::getScan();
-  pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
-  pBLEScan->setActiveScan(true);
-  pBLEScan->start(30);
+  pubSubClient.setServer(mqtt_server, 1883);
+
+  /*
+    BLEDevice::init("Master-Controller");
+
+    BLEScan *pBLEScan = BLEDevice::getScan();
+    pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
+    pBLEScan->setActiveScan(true);
+    pBLEScan->start(30);
+    */
 }
 
 void loop() {
@@ -82,5 +99,18 @@ void loop() {
     doConnect = false;
   }
 
+  if (!pubSubClient.connected()) {
+    while (!pubSubClient.connected()) {
+      if (pubSubClient.connect("ESP32Client", mqtt_user, mqtt_password)) {
+        pubSubClient.publish("/homeassistant/pack1/voltage1", "Hello");
+      } else {
+        Serial.println("PubSubClient could not connect");
+        delay(1000);
+      }
+    }
+  }
+  pubSubClient.loop();
+
+  pubSubClient.publish("/homeassistant/pack1/voltage1", "Hello");
   delay(1000);
 }

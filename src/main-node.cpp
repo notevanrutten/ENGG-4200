@@ -1,5 +1,7 @@
 #include <Arduino.h>
-#include <BLEDevice.h>
+#include <NimBLEDevice.h>
+
+#define PACK_NUMBER 1
 
 #define VOLTAGE_PIN_1 34
 #define VOLTAGE_PIN_2 25
@@ -17,14 +19,14 @@ BLECharacteristic *pCharacteristic;
 void setup() {
   Serial.begin(115200);
 
-  BLEDevice::init("Node-1");
+  String device_name = "Pack-" + String(PACK_NUMBER);
+  BLEDevice::init(device_name.c_str());
 
   BLEServer *pServer = BLEDevice::createServer();
   BLEService *pService = pServer->createService(SERVICE_UUID);
 
   pCharacteristic = pService->createCharacteristic(
-      CHARACTERISTIC_UUID_1,
-      BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
+      CHARACTERISTIC_UUID_1, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
 
   pService->start();
 
@@ -43,15 +45,8 @@ void loop() {
   float v2 = (adc2 / 1000.0) * ((47.0 + 10.0) / 10.0);
   float v3 = (adc3 / 1000.0) * ((47.0 + 10.0) / 10.0);
 
-  float pack1 = v1;
-  float pack2 = v2 - pack1;
-  float pack3 = v3 - (pack1 + pack2);
-
-  /*
-    Serial.printf("adc1: %d, v1: %.2fV, pack1: %.2fV\n", adc1, v1, pack1);
-    Serial.printf("adc2: %d, v2: %.2fV, pack2: %.2fV\n", adc2, v2, pack2);
-    Serial.printf("adc3: %d, v3: %.2fV, pack3: %.2fV\n", adc3, v3, pack3);
-  */
+  v2 -= v1;
+  v3 -= v2 + v1;
 
   int temp_adc = analogReadMilliVolts(TEMP_PIN);
 
@@ -61,16 +56,13 @@ void loop() {
   float temp =
       1.0 / (1.0 / 298.15 + (1 / 3435.0) * log(r_therm / 10.0)) - 273.15;
 
-  // Serial.printf("\ntemp_adc: %d, r_therm: %0.2fkΩ, temp: %0.2f°C\n\n",
-  // temp_adc, r_therm, temp);
+  String msg = String(PACK_NUMBER) + "," + String(v1) + "," + String(v2) + "," +
+               String(v3) + "," + String(temp);
 
-  String value = "N1,V1:" + String(pack1) + ",V2:" + String(pack2) +
-                 ",V3:" + String(pack3) + ",T:" + String(temp);
+  Serial.println(msg);
 
-  pCharacteristic->setValue(value.c_str());
+  pCharacteristic->setValue(msg.c_str());
   pCharacteristic->notify();
-
-  Serial.println(value);
 
   delay(1000);
 }
