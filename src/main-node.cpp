@@ -18,15 +18,16 @@ BLECharacteristic *pCharacteristic;
 
 void setup() {
   Serial.begin(115200);
+  Serial.println();
 
-  String device_name = "Pack-" + String(PACK_NUMBER);
-  BLEDevice::init(device_name.c_str());
+  BLEDevice::init(("Pack-" + String(PACK_NUMBER)).c_str());
+  BLEDevice::setMTU(64);
 
   BLEServer *pServer = BLEDevice::createServer();
   BLEService *pService = pServer->createService(SERVICE_UUID);
 
-  pCharacteristic = pService->createCharacteristic(
-      CHARACTERISTIC_UUID_1, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
+  pCharacteristic = pService->createCharacteristic(CHARACTERISTIC_UUID_1,
+                                                   NIMBLE_PROPERTY::NOTIFY);
 
   pService->start();
 
@@ -59,10 +60,10 @@ void loop() {
   String msg = String(PACK_NUMBER) + "," + String(v1) + "," + String(v2) + "," +
                String(v3) + "," + String(temp);
 
-  Serial.println(msg);
-
-  pCharacteristic->setValue(msg.c_str());
+  pCharacteristic->setValue(msg);
   pCharacteristic->notify();
+
+  Serial.println(msg);
 
   delay(1000);
 }
