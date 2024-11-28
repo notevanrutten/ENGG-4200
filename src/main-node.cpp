@@ -55,7 +55,7 @@ void loop() {
   float r_therm = 10.0 * (v_therm) / (3.3 - v_therm);
 
   float temp =
-      1.0 / (1.0 / 298.15 + (1 / 3435.0) * log(r_therm / 10.0)) - 273.15;
+      1.0 / (1.0 / 298.15 + (1 / 3435.0) * log(r_therm / 10.0)) - 273.15 - 15;
 
   String msg = String(PACK_NUMBER) + "," + String(v1) + "," + String(v2) + "," +
                String(v3) + "," + String(temp);

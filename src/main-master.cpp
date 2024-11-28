@@ -29,11 +29,18 @@ void notifyCallback(BLERemoteCharacteristic *pCharacteristic, uint8_t *pData,
   sscanf(msg.c_str(), "%d,%f,%f,%f,%f", &pack, &v1, &v2, &v3, &temp);
 
   if (pubSubClient.connected()) {
-    pubSubClient.publish("/homeassistant/pack1/voltage1", "Hello");
-    pubSubClient.publish("/homeassistant/pack1/voltage1", "Hello");
-    pubSubClient.publish("/homeassistant/pack1/voltage1", "Hello");
-    pubSubClient.publish("/homeassistant/pack1/voltage1", "Hello");
-    pubSubClient.publish("/homeassistant/pack1/voltage1", "Hello");
+    pubSubClient.publish(
+        ("/homeassistant/pack" + String(pack) + "/voltage1").c_str(),
+        String(v1).c_str());
+    pubSubClient.publish(
+        ("/homeassistant/pack" + String(pack) + "/voltage2").c_str(),
+        String(v2).c_str());
+    pubSubClient.publish(
+        ("/homeassistant/pack" + String(pack) + "/voltage3").c_str(),
+        String(v3).c_str());
+    pubSubClient.publish(
+        ("/homeassistant/pack" + String(pack) + "/temp").c_str(),
+        String(temp).c_str());
   }
 }
 
@@ -103,7 +110,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
 void setup() {
   Serial.begin(115200);
   Serial.println();
-  /*
+
   WiFi.begin(wifi_ssid, wifi_password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -111,7 +118,7 @@ void setup() {
   Serial.println("Connected to WiFi: " + String(wifi_ssid));
 
   pubSubClient.setServer(mqtt_server, 1883);
-  */
+
   BLEDevice::init("Master-Controller");
   BLEDevice::setMTU(64);
 
@@ -130,11 +137,11 @@ void loop() {
       doConnect[i] = false;
     }
   }
-  /*
+
   if (!pubSubClient.connected()) {
     while (!pubSubClient.connected()) {
       if (pubSubClient.connect("ESP32Client", mqtt_user, mqtt_password)) {
-        pubSubClient.publish("/homeassistant/pack1/voltage1", "Hello");
+        Serial.println("PubSubClient connected");
       } else {
         Serial.println("PubSubClient could not connect");
         delay(1000);
@@ -143,7 +150,5 @@ void loop() {
   }
   pubSubClient.loop();
 
-  pubSubClient.publish("/homeassistant/pack1/voltage1", "Hello");
-  */
   delay(1000);
 }
